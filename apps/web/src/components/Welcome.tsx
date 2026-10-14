@@ -1,7 +1,7 @@
 import { useRef, useState } from 'react';
 import { create } from 'zustand';
 import { useMissionStore } from '../app/missionStore';
-import { openProject } from '../features/live/resume';
+import { adoptGeneratedMeans, openProject } from '../features/live/resume';
 import { useResumeStore } from '../features/live/ResumeWizard';
 import { resetConfigEditor } from '../features/config/store';
 import { parseProject } from './project';
@@ -89,9 +89,10 @@ function ResumeProject({ onBack }: { onBack: () => void }) {
 
   const load = async (file?: File) => {
     if (!file) return;
-    const { project, error: e } = parseProject(await file.text());
+    const { project: parsed, error: e } = parseProject(await file.text());
     setError(e);
-    if (!project) return;
+    if (!parsed) return;
+    const project = adoptGeneratedMeans(parsed);
     await run(async () => {
       const state = await openProject(project);
       begin(project);

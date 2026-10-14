@@ -13,6 +13,7 @@ import {
   useMissionUpdate,
 } from '../config/ConfigPanel';
 import { useConfigEditorStore } from '../config/store';
+import { pilotModels, withDrone, withLevel, withPilot, withoutPilots } from './means';
 import { resumeInConduite } from './resume';
 import { useLiveStore } from './store';
 import { MANUAL_WEATHER, editWeather, importWeather, weatherLimits } from './weather';
@@ -54,7 +55,7 @@ export const useResumeStore = create<ResumeStore>((set) => ({
  * → importer la météo → relancer l'optimisation avec ces nouvelles contraintes.
  */
 export function ResumeWizard() {
-  const { state, setState, run, busy } = useMissionStore();
+  const { state, catalog, setState, run, busy } = useMissionStore();
   const { project, step, available, weather, setStep, clear } = useResumeStore();
   const setView = useLiveStore((s) => s.setView);
   const setMode = useStartStore((s) => s.setMode);
@@ -71,7 +72,14 @@ export function ResumeWizard() {
   const launch = () =>
     saved &&
     run(async () => {
-      const next = await resumeInConduite(state, saved, { available, weather }, setProgress);
+      const next = await resumeInConduite(
+        state,
+        project,
+        saved,
+        { available, weather },
+        catalog?.rules ?? [],
+        setProgress,
+      );
       setView('pending');
       clear();
       setMode(undefined);
@@ -102,7 +110,7 @@ export function ResumeWizard() {
     },
     1: {
       intro:
-        'Cochez les couples télépilote et drone réellement présents. Ajoutez ceux qui n’étaient pas prévus.',
+        'Cochez les télépilotes présents, ajustez leur niveau et les drones qu’ils emportent. Ajoutez ceux qui n’étaient pas prévus, retirez les autres.',
       body: <MeansFields />,
       next: (
         <button className="primary" onClick={() => setStep(2)} disabled={busy}>
@@ -193,156 +201,294 @@ function ZoneTabs() {
   );
 }
 
-const NEW_PILOT = '__nouveau__';
+const shortName = (name: string) => name.replace(/^DJI /, '');
 
-/** Couples disponibles, ajout d'un couple, plafond de l'arrêté. */
+/**
+ * Drones qu'un télépilote emporte : il peut en avoir plusieurs, mais n'en pilote qu'un à la
+ * fois (le solveur choisit lequel). Il en garde toujours au moins un.
+ */
+function DroneChoice({
+  selected,
+  onToggle,
+  label,
+}: {
+  selected: string[];
+  onToggle: (modelId: string, on: boolean) => void;
+  label: string;
+}) {
+  const catalog = useMissionStore((s) => s.catalog);
+  const busy = useMissionStore((s) => s.busy);
+  return (
+    <div className="drone-chips" role="group" aria-label={label}>
+      {catalog?.drones.map((d) => {
+        const on = selected.includes(d.id);
+        const last = on && selected.length === 1;
+        return (
+          <button
+            key={d.id}
+            aria-pressed={on}
+            className={`drone-chip ${on ? 'on' : ''}`}
+            disabled={busy || last}
+            title={last ? 'Il faut au moins un drone par télépilote' : d.name}
+            onClick={() => onToggle(d.id, !on)}
+          >
+            {on && (
+              <svg viewBox="0 0 12 12" width="10" height="10" aria-hidden="true">
+                <path
+                  d="M2 6.5l2.5 2.5L10 3.5"
+                  fill="none"
+                  stroke="currentColor"
+                  strokeWidth="1.8"
+                />
+              </svg>
+            )}
+            {shortName(d.name)}
+          </button>
+        );
+      })}
+    </div>
+  );
+}
+
+/** Niveau du télépilote : il fixe sa portée (1 ou 2 km) et ses hauteurs de vol. */
+function LevelSwitch({
+  level,
+  onChange,
+  name,
+}: {
+  level: PilotLevel;
+  onChange: (level: PilotLevel) => void;
+  name: string;
+}) {
+  const busy = useMissionStore((s) => s.busy);
+  return (
+    <div className="segmented level-switch" role="group" aria-label={`Niveau de ${name}`}>
+      {(['TP1', 'TP2'] as const).map((l) => (
+        <button
+          key={l}
+          className={level === l ? 'active' : ''}
+          aria-pressed={level === l}
+          disabled={busy}
+          onClick={() => level !== l && onChange(l)}
+        >
+          {l}
+        </button>
+      ))}
+    </div>
+  );
+}
+
+/**
+ * Télépilotes réellement présents : niveau, drone qu'ils font voler, présence.
+ * On peut en ajouter qui n'étaient pas prévus et en retirer un ou plusieurs.
+ */
 function MeansFields() {
   const { state, catalog, busy } = useMissionStore();
   const { project, available, setAvailable } = useResumeStore();
   const update = useMissionUpdate();
-  const [pilotId, setPilotId] = useState(NEW_PILOT);
-  const [pilotName, setPilotName] = useState('');
+  const [removing, setRemoving] = useState(false);
+  const [toRemove, setToRemove] = useState<string[]>([]);
+  const [name, setName] = useState('');
   const [level, setLevel] = useState<PilotLevel>('TP1');
-  const [modelId, setModelId] = useState('');
+  const [models, setModels] = useState<string[]>([]);
   if (!state || !project) return null;
   const { mission } = state;
+  const drones = catalog?.drones ?? [];
   const saved = retainedProposal(project);
   const engaged = new Set(saved?.assignments.map((a) => a.resourceId));
-  const isOn = (id: string, fallback: boolean) => available[id] ?? fallback;
-  const onResources = mission.resources.filter((r) => isOn(r.id, r.available));
-  const onPilots = new Set(onResources.map((r) => r.pilotId));
-  const model = modelId || catalog?.drones[0]?.id || '';
-  const newPilot = pilotId === NEW_PILOT;
+  const couplesOf = (pilotId: string) => mission.resources.filter((r) => r.pilotId === pilotId);
+  const isPresent = (pilotId: string) =>
+    couplesOf(pilotId).some((r) => available[r.id] ?? r.available);
+  const present = mission.pilots.filter((p) => isPresent(p.id));
 
-  const addCouple = () => {
-    if (!model || (newPilot && !pilotName.trim())) return;
-    const pid = newPilot ? crypto.randomUUID() : pilotId;
-    void update({
-      pilots: newPilot
-        ? [...mission.pilots, { id: pid, name: pilotName.trim(), level }]
-        : mission.pilots,
-      resources: [
-        ...mission.resources,
-        {
-          id: `r-${crypto.randomUUID().slice(0, 8)}`,
-          pilotId: pid,
-          droneModelId: model,
-          available: true,
-        },
-      ],
+  const setPresent = (pilotId: string, on: boolean) =>
+    couplesOf(pilotId).forEach((r) => setAvailable(r.id, on));
+  const removeSelected = () =>
+    void update(withoutPilots(mission, toRemove)).then(() => {
+      setToRemove([]);
+      setRemoving(false);
     });
-    setPilotName('');
-    setPilotId(pid);
+  const addPilot = () => {
+    const modelIds = models.length ? models : drones.slice(0, 1).map((d) => d.id);
+    if (!name.trim() || !modelIds.length) return;
+    void update(
+      withPilot(mission, { id: crypto.randomUUID(), name: name.trim(), level, modelIds }),
+    ).then(() => {
+      setName('');
+      setModels([]);
+    });
   };
 
   return (
     <>
       <p className="means-summary">
         <span>
-          <b>{onResources.length}</b> drone(s) et <b>{onPilots.size}</b> télépilote(s) disponibles
-        </span>
-        <span
-          className={`pill ${onResources.length > mission.maxDrones ? 'warn' : ''}`}
-          title="Le solveur n’engagera pas plus de drones que l’arrêté n’en autorise"
-        >
-          Arrêté : {mission.maxDrones} max
+          <b>{present.length}</b> télépilote(s) présent(s) sur {mission.pilots.length}
         </span>
       </p>
 
-      <ul className="resume-couples">
+      <div className={`means-toolbar ${removing ? 'selecting' : ''}`}>
+        {removing ? (
+          <span className="means-toolbar-hint" role="status">
+            {toRemove.length
+              ? `${toRemove.length} télépilote(s) sélectionné(s)`
+              : 'Cochez les télépilotes à retirer'}
+          </span>
+        ) : (
+          <span className="means-toolbar-hint">
+            <span
+              className={`pill ${present.length > mission.maxDrones ? 'warn' : ''}`}
+              title="Le solveur n’engagera pas plus de drones que l’arrêté n’en autorise"
+            >
+              Arrêté : {mission.maxDrones} drones max
+            </span>
+          </span>
+        )}
+        <button
+          className={`icon-button ${removing ? 'active' : ''}`}
+          aria-pressed={removing}
+          aria-label={removing ? 'Terminer la sélection' : 'Sélectionner des télépilotes'}
+          title={removing ? 'Terminer la sélection' : 'Sélectionner des télépilotes à retirer'}
+          disabled={busy || !mission.pilots.length}
+          onClick={() => {
+            setRemoving(!removing);
+            setToRemove([]);
+          }}
+        >
+          <svg viewBox="0 0 20 20" width="18" height="18" aria-hidden="true">
+            <rect
+              x="3"
+              y="3"
+              width="14"
+              height="14"
+              rx="3"
+              fill="none"
+              stroke="currentColor"
+              strokeWidth="1.6"
+            />
+            <path
+              d="M6.5 10.2l2.4 2.4 4.6-5"
+              fill="none"
+              stroke="currentColor"
+              strokeWidth="1.8"
+              strokeLinecap="round"
+              strokeLinejoin="round"
+            />
+          </svg>
+        </button>
+        <button
+          className="icon-button trash"
+          aria-label={`Retirer ${toRemove.length} télépilote(s)`}
+          title={
+            toRemove.length
+              ? `Retirer ${toRemove.length} télépilote(s)`
+              : 'Sélectionnez d’abord les télépilotes à retirer'
+          }
+          disabled={busy || !removing || !toRemove.length}
+          onClick={removeSelected}
+        >
+          <svg viewBox="0 0 20 20" width="18" height="18" aria-hidden="true">
+            <path
+              d="M3.5 5.5h13M8 5.5V4a1 1 0 011-1h2a1 1 0 011 1v1.5M5.2 5.5l.8 10.6a1.5 1.5 0 001.5 1.4h5a1.5 1.5 0 001.5-1.4l.8-10.6M8.5 8.5v6M11.5 8.5v6"
+              fill="none"
+              stroke="currentColor"
+              strokeWidth="1.6"
+              strokeLinecap="round"
+              strokeLinejoin="round"
+            />
+          </svg>
+          {removing && toRemove.length > 0 && <span className="count">{toRemove.length}</span>}
+        </button>
+      </div>
+
+      <ul className={`pilot-cards ${removing ? 'removing' : ''}`}>
+        {mission.pilots.length === 0 && (
+          <li className="empty">Aucun télépilote : ajoutez ceux qui sont présents.</li>
+        )}
         {mission.pilots.map((pilot) => {
-          const couples = mission.resources.filter((r) => r.pilotId === pilot.id);
-          if (!couples.length) return null;
+          const on = isPresent(pilot.id);
+          const selected = toRemove.includes(pilot.id);
+          const isEngaged = couplesOf(pilot.id).some((r) => engaged.has(r.id));
           return (
-            <li key={pilot.id} className="pilot-row">
-              <div className="pilot-head">
-                <b>{pilot.name}</b>
-                <span className={`pill ${pilot.level === 'TP1' ? 'ok' : 'info'}`}>
-                  {pilot.level}
-                </span>
+            <li
+              key={pilot.id}
+              className={`pilot-card ${on ? '' : 'absent'} ${selected ? 'selected' : ''}`}
+            >
+              <div className="pilot-card-head">
+                {removing ? (
+                  <input
+                    type="checkbox"
+                    checked={selected}
+                    aria-label={`Sélectionner ${pilot.name} pour le retirer`}
+                    onChange={(e) =>
+                      setToRemove(
+                        e.target.checked
+                          ? [...toRemove, pilot.id]
+                          : toRemove.filter((id) => id !== pilot.id),
+                      )
+                    }
+                  />
+                ) : (
+                  <input
+                    type="checkbox"
+                    checked={on}
+                    aria-label={`${pilot.name} présent`}
+                    title={on ? 'Présent' : 'Absent'}
+                    onChange={(e) => setPresent(pilot.id, e.target.checked)}
+                  />
+                )}
+                <b className="pilot-name">{pilot.name}</b>
+                {isEngaged && <span className="pill">Engagé</span>}
+                {!on && <span className="pill danger">Absent</span>}
+                <LevelSwitch
+                  level={pilot.level}
+                  name={pilot.name}
+                  onChange={(l) => void update(withLevel(mission, pilot.id, l))}
+                />
               </div>
-              {couples.map((r) => {
-                const on = isOn(r.id, r.available);
-                const drone = catalog?.drones.find((d) => d.id === r.droneModelId);
-                return (
-                  <label key={r.id} className="couple-row">
-                    <input
-                      type="checkbox"
-                      checked={on}
-                      onChange={(e) => setAvailable(r.id, e.target.checked)}
-                    />
-                    <span>{drone?.name ?? r.droneModelId}</span>
-                    {engaged.has(r.id) && <span className="pill">Engagé</span>}
-                    {!on && <span className="pill danger">Absent</span>}
-                  </label>
-                );
-              })}
+              <DroneChoice
+                label={`Drone de ${pilot.name}`}
+                selected={pilotModels(mission, pilot.id)}
+                onToggle={(model, on) => void update(withDrone(mission, pilot.id, model, on))}
+              />
             </li>
           );
         })}
       </ul>
 
-      <fieldset className="add-couple">
-        <legend>Ajouter un couple</legend>
-        <label>
-          Télépilote
-          <select value={pilotId} onChange={(e) => setPilotId(e.target.value)}>
-            <option value={NEW_PILOT}>Nouveau télépilote</option>
-            {mission.pilots.map((p) => (
-              <option key={p.id} value={p.id}>
-                {p.name} ({p.level})
-              </option>
-            ))}
-          </select>
-        </label>
-        {newPilot && (
-          <div className="add-pilot">
-            <label>
-              Nom
-              <input
-                type="text"
-                value={pilotName}
-                onChange={(e) => setPilotName(e.target.value)}
-                placeholder="Nom du télépilote"
-              />
-            </label>
-            <div className="segmented" role="group" aria-label="Niveau du télépilote">
-              {(['TP1', 'TP2'] as const).map((l) => (
-                <button
-                  key={l}
-                  className={level === l ? 'active' : ''}
-                  aria-pressed={level === l}
-                  onClick={() => setLevel(l)}
-                >
-                  {l}
-                </button>
-              ))}
-            </div>
-          </div>
-        )}
-        <label>
-          Drone
-          <select value={model} onChange={(e) => setModelId(e.target.value)}>
-            {catalog?.drones.map((d) => (
-              <option key={d.id} value={d.id}>
-                {d.name}
-              </option>
-            ))}
-          </select>
-        </label>
+      <details className="add-couple">
+        <summary>Ajouter un télépilote</summary>
+        <div className="add-pilot">
+          <label>
+            Nom
+            <input
+              type="text"
+              value={name}
+              onChange={(e) => setName(e.target.value)}
+              placeholder="Ex. GND Dupont"
+            />
+          </label>
+          <LevelSwitch level={level} name="ce télépilote" onChange={setLevel} />
+        </div>
+        <DroneChoice
+          label="Drones du nouveau télépilote"
+          selected={models.length ? models : drones.slice(0, 1).map((d) => d.id)}
+          onToggle={(model, on) => {
+            const current = models.length ? models : drones.slice(0, 1).map((d) => d.id);
+            setModels(on ? [...current, model] : current.filter((m) => m !== model));
+          }}
+        />
+        <small className="hint">
+          Il peut emporter plusieurs drones, mais n’en pilote qu’un à la fois.
+        </small>
         <button
-          onClick={addCouple}
-          disabled={
-            busy ||
-            !model ||
-            (newPilot
-              ? !pilotName.trim()
-              : mission.resources.some((r) => r.pilotId === pilotId && r.droneModelId === model))
-          }
+          className="primary"
+          onClick={addPilot}
+          disabled={busy || !name.trim() || !drones.length}
         >
-          Ajouter ce couple
+          Ajouter le télépilote
         </button>
-      </fieldset>
+      </details>
 
       <label>
         Drones maximum autorisés par l’arrêté

@@ -107,6 +107,10 @@
   flex-direction: column;
   gap: 12px;
 }
+/* Le corps défile en entier : aucun bloc ne s'écrase pour tenir dans la hauteur. */
+.wizard-body > * {
+  flex-shrink: 0;
+}
 .wizard-body > label,
 .wizard-field {
   display: flex;

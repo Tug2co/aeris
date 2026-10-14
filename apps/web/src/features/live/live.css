@@ -98,52 +98,175 @@
   margin-left: auto;
 }
 
-.wizard-body .resume-couples {
-  max-height: 34vh;
-}
-.wizard-body .resume-couples li.pilot-row {
-  display: block;
-  padding: 8px 10px;
-}
-.pilot-head {
+/* Sélection puis poubelle : retirer un ou plusieurs télépilotes. */
+.means-toolbar {
   display: flex;
   align-items: center;
-  gap: 8px;
-  margin-bottom: 4px;
+  gap: 6px;
 }
-.couple-row {
-  display: flex;
-  align-items: center;
-  gap: 8px;
+.means-toolbar-hint {
+  flex: 1;
+  color: var(--text-2);
+  font-size: 12px;
+}
+.means-toolbar.selecting .means-toolbar-hint {
+  color: var(--danger-text);
+}
+.icon-button {
+  position: relative;
+  display: inline-grid;
+  place-items: center;
+  width: 34px;
+  height: 34px;
+  padding: 0;
+  border-radius: 8px;
+  color: var(--text-2);
+}
+.icon-button:hover:not(:disabled) {
+  color: var(--text);
+}
+.icon-button.active {
+  border-color: var(--primary);
+  background: var(--info-bg);
+  color: var(--primary);
+}
+.icon-button.trash:not(:disabled) {
+  border-color: var(--danger);
+  background: var(--danger-bg);
+  color: var(--danger-text);
+}
+.icon-button .count {
+  position: absolute;
+  top: -6px;
+  right: -6px;
+  min-width: 17px;
+  height: 17px;
+  padding: 0 4px;
+  border-radius: 9px;
+  background: var(--danger);
+  color: #fff;
+  font-size: 11px;
+  font-weight: 600;
+  line-height: 17px;
+}
+
+/* Un télépilote par carte : présence, nom, niveau, puis les drones qu'il sait faire voler. */
+.pilot-cards {
+  list-style: none;
   margin: 0;
-  padding: 3px 0 3px 2px;
-  font-weight: 400;
-  cursor: pointer;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  max-height: 38vh;
+  overflow-y: auto;
 }
-.couple-row input {
+.pilot-cards > .empty {
+  padding: 10px;
+  color: var(--text-2);
+}
+.pilot-card {
+  padding: 8px 10px 10px;
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  background: var(--surface);
+}
+.pilot-card.absent {
+  background: var(--surface-2);
+}
+.pilot-card.absent .pilot-name,
+.pilot-card.absent .drone-chips {
+  opacity: 0.55;
+}
+.pilot-cards.removing .pilot-card.selected {
+  border-color: var(--danger);
+  box-shadow: inset 3px 0 0 var(--danger);
+}
+.pilot-card-head {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-bottom: 8px;
+}
+.pilot-card-head input[type='checkbox'] {
   width: 16px;
   height: 16px;
   margin: 0;
   accent-color: var(--primary);
 }
-.couple-row > span:first-of-type {
+.pilot-cards.removing .pilot-card-head input[type='checkbox'] {
+  accent-color: var(--danger);
+}
+.pilot-name {
   flex: 1;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.wizard-body .level-switch {
+  width: auto;
+  flex: none;
+}
+.level-switch button {
+  padding: 2px 10px;
+  font-size: 12px;
+}
+
+/* Drones de la bibliothèque : puce pleine = sait le faire voler. */
+.drone-chips {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px;
+}
+.drone-chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  padding: 3px 9px;
+  border-radius: 999px;
+  border: 1px dashed var(--border);
+  background: transparent;
+  color: var(--text-2);
+  font-size: 12px;
+  font-weight: 400;
+}
+.drone-chip.on {
+  border: 1px solid var(--primary);
+  background: var(--info-bg);
+  color: var(--info-text);
+  font-weight: 500;
+}
+.drone-chip:disabled {
+  cursor: default;
+  opacity: 1;
 }
 
 .add-couple {
   display: flex;
   flex-direction: column;
   gap: 8px;
-  margin: 0;
-  padding: 10px 12px 12px;
+  padding: 0 12px;
   border: 1px solid var(--border);
   border-radius: 6px;
 }
-.add-couple legend {
-  padding: 0 4px;
-  font-weight: 600;
+.add-couple[open] {
+  padding-bottom: 12px;
 }
-.add-couple label,
+.add-couple summary {
+  padding: 9px 0;
+  font-weight: 600;
+  cursor: pointer;
+}
+.add-couple > * + * {
+  margin-top: 8px;
+}
+.add-pilot {
+  display: grid;
+  grid-template-columns: 1fr auto;
+  align-items: end;
+  gap: 8px;
+}
 .add-pilot label {
   display: flex;
   flex-direction: column;
@@ -152,16 +275,7 @@
   margin: 0;
   font-weight: 500;
 }
-.add-pilot {
-  display: grid;
-  grid-template-columns: 1fr auto;
-  align-items: end;
-  gap: 8px;
-}
-.add-pilot .segmented {
-  width: auto;
-}
-.add-couple > button {
+.add-couple > .primary {
   align-self: flex-start;
 }
 
