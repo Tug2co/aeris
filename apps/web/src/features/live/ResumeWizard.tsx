@@ -309,10 +309,9 @@ function MeansFields() {
       setRemoving(false);
     });
   const addPilot = () => {
-    const modelIds = models.length ? models : drones.slice(0, 1).map((d) => d.id);
-    if (!name.trim() || !modelIds.length) return;
+    if (!name.trim() || !models.length) return;
     void update(
-      withPilot(mission, { id: crypto.randomUUID(), name: name.trim(), level, modelIds }),
+      withPilot(mission, { id: crypto.randomUUID(), name: name.trim(), level, modelIds: models }),
     ).then(() => {
       setName('');
       setModels([]);
@@ -472,11 +471,10 @@ function MeansFields() {
         </div>
         <DroneChoice
           label="Drones du nouveau télépilote"
-          selected={models.length ? models : drones.slice(0, 1).map((d) => d.id)}
-          onToggle={(model, on) => {
-            const current = models.length ? models : drones.slice(0, 1).map((d) => d.id);
-            setModels(on ? [...current, model] : current.filter((m) => m !== model));
-          }}
+          selected={models}
+          onToggle={(model, on) =>
+            setModels(on ? [...models, model] : models.filter((m) => m !== model))
+          }
         />
         <small className="hint">
           Il peut emporter plusieurs drones, mais n’en pilote qu’un à la fois.
@@ -484,7 +482,7 @@ function MeansFields() {
         <button
           className="primary"
           onClick={addPilot}
-          disabled={busy || !name.trim() || !drones.length}
+          disabled={busy || !name.trim() || !models.length}
         >
           Ajouter le télépilote
         </button>
