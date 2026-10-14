@@ -3,6 +3,7 @@ import { useMissionStore } from '../../app/missionStore';
 import { KpiGrid } from '../../components/KpiGrid';
 import { SeparationCard } from '../../components/SeparationCard';
 import { phaseDiagnostics } from '../../components/separation';
+import { buildSectorsGeoJSON, downloadGeoJson } from '../scenarios/exportSectors';
 import { useLiveStore } from './store';
 
 /**
@@ -10,7 +11,7 @@ import { useLiveStore } from './store';
  * et la stabilité), séparation de l'espace aérien, puis recalculer / appliquer.
  */
 export function LiveRight() {
-  const { state, run, busy } = useMissionStore();
+  const { state, run, busy, catalog } = useMissionStore();
   const { live, view, setView } = useLiveStore();
   if (!state || !live) return null;
 
@@ -116,6 +117,28 @@ export function LiveRight() {
           }
         >
           Rejeter
+        </button>
+        <button
+          disabled={busy || live.assignments.length === 0}
+          title="Télécharger les secteurs de vol de la phase en cours au format GeoJSON (QGIS / ATAK)"
+          onClick={async () => {
+            try {
+              const cov = await api.liveCoverage(mission.id);
+              const fc = buildSectorsGeoJSON(mission, live.phase, live.assignments, cov, catalog);
+              downloadGeoJson(fc.name, fc);
+            } catch {
+              const fc = buildSectorsGeoJSON(
+                mission,
+                live.phase,
+                live.assignments,
+                undefined,
+                catalog,
+              );
+              downloadGeoJson(fc.name, fc);
+            }
+          }}
+        >
+          Exporter secteurs
         </button>
       </footer>
     </>

@@ -31,6 +31,7 @@ const BASE: Item[] = [
 ];
 
 const COVERAGE: Item[] = [
+  { label: 'Secteur par drone', stroke: '#1d4ed8', dash: '3 2', fill: '#1d4ed8' },
   { label: 'Chevauchement', stroke: 'transparent', fill: COVERAGE_COLORS.overlap },
   { label: 'Trou de couverture', stroke: COVERAGE_COLORS.gaps, dash: '2 2' },
 ];

@@ -10,6 +10,7 @@ import { useScenarioStore } from '../features/scenarios/store';
 import { useThemeStore, type Theme } from '../theme';
 import { projectFileName, toProject } from './project';
 import { useStartStore } from './Welcome';
+import { buildSectorsGeoJSON, downloadGeoJson } from '../features/scenarios/exportSectors';
 import './components.css';
 
 /** Ouverture du menu latéral, déclenchée par le bloc logo + nom du bandeau. */
@@ -31,6 +32,31 @@ function saveProject() {
   link.download = projectFileName(project);
   link.click();
   URL.revokeObjectURL(url);
+}
+
+/** Télécharge les secteurs d'intervention des drones au format GeoJSON (QGIS / ATAK). */
+async function exportCurrentSectors() {
+  const state = useMissionStore.getState().state;
+  const catalog = useMissionStore.getState().catalog;
+  if (!state) return;
+  const { mission, live } = state;
+  const proposal = state.selectedProposalId
+    ? state.proposals.find((p) => p.id === state.selectedProposalId)
+    : state.proposals[0];
+  const phase = live?.phase ?? 0;
+  const assignments = live?.assignments ?? proposal?.assignments ?? [];
+  try {
+    const cov = live
+      ? await api.liveCoverage(mission.id)
+      : proposal
+        ? await api.coverage(mission.id, proposal.id, phase)
+        : undefined;
+    const fc = buildSectorsGeoJSON(mission, phase, assignments, cov, catalog);
+    downloadGeoJson(fc.name, fc);
+  } catch {
+    const fc = buildSectorsGeoJSON(mission, phase, assignments, undefined, catalog);
+    downloadGeoJson(fc.name, fc);
+  }
 }
 
 /** Ferme le projet en cours et revient au choix Planification / Conduite. */
@@ -113,6 +139,9 @@ export function AppMenu() {
           <div className="menu-actions">
             <button disabled={!hasMission} onClick={saveProject}>
               Enregistrer le projet
+            </button>
+            <button disabled={!hasMission} onClick={exportCurrentSectors}>
+              Exporter les secteurs (GeoJSON)
             </button>
             <button
               onClick={() => {

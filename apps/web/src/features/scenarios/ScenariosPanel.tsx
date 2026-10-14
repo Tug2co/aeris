@@ -11,6 +11,7 @@ import { phaseDiagnostics } from '../../components/separation';
 import { CompareTable } from './CompareTable';
 import { STATUS_LABELS, columnLabels } from './compare';
 import { applyMoves, moveKey } from './draft';
+import { buildSectorsGeoJSON, downloadGeoJson } from './exportSectors';
 import { useSelection } from './selection';
 import { useScenarioStore } from './store';
 import './scenarios.css';
@@ -53,6 +54,30 @@ export function ScenariosPanel() {
       clearDraft();
       setState(await api.getMission(mission.id));
     });
+
+  const exportAllSectors = async () => {
+    if (!selected) return;
+    try {
+      const cov = await api.coverage(mission.id, selected.id, phase);
+      const fc = buildSectorsGeoJSON(mission, phase, inPhase, cov, catalog);
+      downloadGeoJson(fc.name, fc);
+    } catch {
+      const fc = buildSectorsGeoJSON(mission, phase, inPhase, undefined, catalog);
+      downloadGeoJson(fc.name, fc);
+    }
+  };
+
+  const exportSingleSector = async (resourceId: string) => {
+    if (!selected) return;
+    try {
+      const cov = await api.coverage(mission.id, selected.id, phase);
+      const fc = buildSectorsGeoJSON(mission, phase, inPhase, cov, catalog, resourceId);
+      downloadGeoJson(`secteur-${resourceId}-phase-${phase + 1}`, fc);
+    } catch {
+      const fc = buildSectorsGeoJSON(mission, phase, inPhase, undefined, catalog, resourceId);
+      downloadGeoJson(`secteur-${resourceId}-phase-${phase + 1}`, fc);
+    }
+  };
 
   // Même bouton, même place pour réduire et rouvrir : seule la flèche s'inverse.
   const toggle = (
@@ -127,10 +152,21 @@ export function ScenariosPanel() {
 
               {metrics && <KpiGrid metrics={metrics} />}
 
-              <h3>
-                Couples engagés
-                {mission.phaseCount > 1 && <small> en phase {phase + 1}</small>}
-              </h3>
+              <div className="section-header-actions">
+                <h3>
+                  Couples engagés
+                  {mission.phaseCount > 1 && <small> en phase {phase + 1}</small>}
+                </h3>
+                {inPhase.length > 0 && (
+                  <button
+                    className="small"
+                    title="Télécharger les secteurs de vol des drones au format GeoJSON (QGIS / ATAK)"
+                    onClick={exportAllSectors}
+                  >
+                    Exporter les secteurs (GeoJSON)
+                  </button>
+                )}
+              </div>
               {inPhase.length === 0 ? (
                 <p className="hint">Aucun couple engagé sur cette phase.</p>
               ) : (
@@ -160,16 +196,25 @@ export function ScenariosPanel() {
                             {formatSlot(a.slot).toLowerCase()}
                           </small>
                         </div>
-                        <button
-                          className="small"
-                          title="Réduire la fenêtre et centrer la carte sur ce couple"
-                          onClick={() => {
-                            focus(a.resourceId);
-                            setMinimized(true);
-                          }}
-                        >
-                          Déplacer
-                        </button>
+                        <div className="couple-buttons">
+                          <button
+                            className="small"
+                            title="Réduire la fenêtre et centrer la carte sur ce couple"
+                            onClick={() => {
+                              focus(a.resourceId);
+                              setMinimized(true);
+                            }}
+                          >
+                            Déplacer
+                          </button>
+                          <button
+                            className="small"
+                            title="Exporter la zone de couverture propre à ce drone (GeoJSON)"
+                            onClick={() => exportSingleSector(a.resourceId)}
+                          >
+                            Secteur
+                          </button>
+                        </div>
                       </li>
                     );
                   })}

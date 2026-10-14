@@ -234,6 +234,22 @@
   color: var(--warn-text);
 }
 
+.section-header-actions {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-top: 16px;
+  margin-bottom: 8px;
+}
+.section-header-actions h3 {
+  margin: 0;
+}
+.couple-buttons {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
 @media (max-width: 860px) {
   .compare-window {
     display: none;
