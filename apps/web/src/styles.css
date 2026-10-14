@@ -432,6 +432,49 @@ input[type='number'] {
   box-shadow: 0 1px 3px rgb(0 0 0 / 0.4);
 }
 
+/* Sélecteur de vision cartographique (flottant en haut au centre de la carte) */
+.map-vision-control {
+  position: absolute;
+  z-index: 850;
+  top: 14px;
+  left: 50%;
+  transform: translateX(-50%);
+  display: flex;
+  align-items: center;
+  gap: 3px;
+  padding: 3px;
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: 999px;
+  box-shadow: 0 4px 18px rgb(15 23 42 / 0.16);
+  pointer-events: auto;
+}
+.map-vision-control button {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 5px 12px;
+  border: 0;
+  border-radius: 999px;
+  background: transparent;
+  color: var(--text-2);
+  font-size: 12px;
+  font-weight: 500;
+  cursor: pointer;
+  white-space: nowrap;
+  transition: all 140ms ease;
+}
+.map-vision-control button:hover:not(:disabled) {
+  color: var(--text);
+  background: var(--surface-2);
+}
+.map-vision-control button.active {
+  background: var(--primary);
+  color: var(--on-primary);
+  font-weight: 600;
+  box-shadow: 0 1px 3px rgb(0 0 0 / 0.2);
+}
+
 /* Leaflet au thème ; le zoom passe en bas à droite pour laisser le haut aux fenêtres. */
 .leaflet-top.leaflet-left {
   top: auto;

@@ -11,6 +11,7 @@ import { useThemeStore, type Theme } from '../theme';
 import { projectFileName, toProject } from './project';
 import { useStartStore } from './Welcome';
 import { buildSectorsGeoJSON, downloadGeoJson } from '../features/scenarios/exportSectors';
+import { VISION_OPTIONS, useMapVisionStore } from '../map/visionStore';
 import './components.css';
 
 /** Ouverture du menu latéral, déclenchée par le bloc logo + nom du bandeau. */
@@ -86,6 +87,7 @@ const THEMES: { id: Theme; label: string }[] = [
 export function AppMenu() {
   const { open, setOpen } = useMenuStore();
   const { theme, setTheme } = useThemeStore();
+  const { mode: visionMode, setMode: setVisionMode } = useMapVisionStore();
   const hasMission = useMissionStore((st) => !!st.state);
   const { catalog, setCatalog, run, busy } = useMissionStore();
   const [droneDraft, setDroneDraft] = useState<NewDroneModel>({
@@ -165,6 +167,22 @@ export function AppMenu() {
         <section aria-labelledby="menu-display">
           <h3 id="menu-display">Affichage</h3>
           <div className="menu-row">
+            <span>Vision</span>
+            <div className="segmented" role="group" aria-label="Vision de la carte">
+              {VISION_OPTIONS.map((opt) => (
+                <button
+                  key={opt.id}
+                  className={visionMode === opt.id ? 'active' : ''}
+                  aria-pressed={visionMode === opt.id}
+                  title={opt.description}
+                  onClick={() => setVisionMode(opt.id)}
+                >
+                  {opt.label}
+                </button>
+              ))}
+            </div>
+          </div>
+          <div className="menu-row" style={{ marginTop: 8 }}>
             <span>Thème</span>
             <div className="segmented" role="group" aria-label="Thème">
               {THEMES.map((t) => (

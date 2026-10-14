@@ -15,6 +15,7 @@ import { LiveRight } from './features/live/LiveRight';
 import { LiveLayers } from './features/live/LiveLayers';
 import { useLiveStore } from './features/live/store';
 import { ResumeWizard, useResumeStore } from './features/live/ResumeWizard';
+import { MapVisionControl } from './map/MapVisionControl';
 import './theme';
 
 /**
@@ -72,6 +73,7 @@ export function App() {
         </MapView>
         {preparing && (resuming ? <ResumeWizard /> : <ConfigPanel />)}
         {proposing && <ScenariosPanel />}
+        {state && !preparing && !(proposing && !minimized) && <MapVisionControl />}
         {state && !preparing && !(proposing && !minimized) && (
           <Legend withCoverage communes={communes} pilots={state.mission.pilots} />
         )}

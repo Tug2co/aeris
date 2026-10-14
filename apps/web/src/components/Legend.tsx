@@ -7,6 +7,7 @@ import {
   PRIORITY_COLORS,
   WORK_AREA_STYLE,
 } from '../map/colors';
+import { useMapVisionStore } from '../map/visionStore';
 import { pct } from './format';
 import './components.css';
 
@@ -28,12 +29,6 @@ const BASE: Item[] = [
     fill: CONSTRAINT_COLORS.interdite,
   },
   { label: 'Hauteur limitée', stroke: CONSTRAINT_COLORS.hauteur_limitee, dash: '2 2' },
-];
-
-const COVERAGE: Item[] = [
-  { label: 'Secteur par drone', stroke: '#1d4ed8', dash: '3 2', fill: '#1d4ed8' },
-  { label: 'Chevauchement', stroke: 'transparent', fill: COVERAGE_COLORS.overlap },
-  { label: 'Trou de couverture', stroke: COVERAGE_COLORS.gaps, dash: '2 2' },
 ];
 
 function Swatch({ item }: { item: Item }) {
@@ -61,7 +56,7 @@ function Swatch({ item }: { item: Item }) {
 
 /**
  * Légende flottante de la carte : styles des couches visibles et communes concernées
- * avec la part de leur surface couverte (calculées par @aeris/geo pour la phase affichée).
+ * avec la part de leur surface couverte (adaptée au mode de vision actif).
  */
 export function Legend({
   withCoverage,
@@ -73,8 +68,10 @@ export function Legend({
   pilots?: Pick<Pilot, 'id' | 'name'>[];
 }) {
   const [open, setOpen] = useState(true);
+  const mode = useMapVisionStore((s) => s.mode);
+
   const pilotItems: Item[] = pilots?.length
-    ? pilots.map((pilot, index) => ({
+    ? pilots.map((pilot) => ({
         label: `${pilot.name} — portée`,
         stroke: pilotColor(
           pilot.id,
@@ -83,7 +80,26 @@ export function Legend({
         round: true,
       }))
     : [{ label: 'Portée par télépilote', stroke: '#2563eb', round: true }];
-  const items = withCoverage ? [...BASE, ...pilotItems, ...COVERAGE] : BASE;
+
+  let items = BASE;
+  if (withCoverage) {
+    if (mode === 'dispositif') {
+      items = [...BASE, ...pilotItems];
+    } else if (mode === 'secteurs') {
+      items = [
+        ...BASE,
+        { label: 'Secteur propre par drone', stroke: 'transparent', fill: '#1d4ed8' },
+      ];
+    } else {
+      items = [
+        ...BASE,
+        { label: 'Zone couverte', stroke: 'transparent', fill: COVERAGE_COLORS.covered },
+        { label: 'Chevauchement', stroke: 'transparent', fill: COVERAGE_COLORS.overlap },
+        { label: 'Trou de couverture', stroke: COVERAGE_COLORS.gaps, dash: '2 2' },
+      ];
+    }
+  }
+
   return (
     <div className="legend card">
       <button className="legend-toggle" onClick={() => setOpen(!open)} aria-expanded={open}>
