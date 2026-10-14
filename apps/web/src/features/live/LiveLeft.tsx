@@ -8,6 +8,7 @@ import { resourceLabel } from '../resourceLabel';
 import { describeEvent } from './events';
 import { METEO_PRESETS, centreZone, meteoDuPreset, modelesAuSol, seuilModele } from './meteo';
 import { useLiveStore } from './store';
+import { weatherLimits } from './weather';
 import { useLiveSocket } from './useLiveSocket';
 import './live.css';
 
@@ -32,6 +33,15 @@ export function LiveLeft() {
     });
   const engaged = new Set(live.assignments.map((a) => a.resourceId));
   const others = mission.resources.filter((r) => !engaged.has(r.id));
+  // Couples cloués au sol par la météo en cours (même règle que le calcul côté API).
+  const groundedBy = (resourceId: string) => {
+    const r = mission.resources.find((x) => x.id === resourceId);
+    const drone = catalog?.drones.find((d) => d.id === r?.droneModelId);
+    return drone && live.weather && live.weather.source !== 'repli'
+      ? weatherLimits(drone, live.weather)
+      : [];
+  };
+  const flyable = mission.resources.filter((r) => r.available && !groundedBy(r.id).length);
 
   return (
     <div className="side-scroll">
@@ -42,7 +52,15 @@ export function LiveLeft() {
 
       <h2>Couples engagés</h2>
       {live.assignments.length === 0 ? (
-        <p className="empty">Aucun couple en vol sur cette phase.</p>
+        flyable.length === 0 && mission.resources.some((r) => r.available) ? (
+          <p className="notice warn" role="status">
+            Aucun couple ne peut voler avec la météo en cours : tous les drones disponibles
+            dépassent leurs limites. Envoyez « Retour au calme » ou la météo réelle, puis «
+            Recalculer ».
+          </p>
+        ) : (
+          <p className="empty">Aucun couple en vol sur cette phase.</p>
+        )
       ) : (
         live.assignments.map((a) => (
           <CoupleCard
@@ -72,7 +90,21 @@ export function LiveLeft() {
                   {resourceLabel(mission, r.id, catalog)}
                 </b>
                 {r.available ? (
-                  <span className="pill">En réserve</span>
+                  groundedBy(r.id).length ? (
+                    <span
+                      className="pill warn"
+                      title={`Cloué au sol par la météo : ${groundedBy(r.id).join(', ')}`}
+                    >
+                      Au sol : {groundedBy(r.id).join(', ')}
+                    </span>
+                  ) : (
+                    <span
+                      className="pill"
+                      title="Engagé au prochain recalcul s’il améliore la couverture"
+                    >
+                      En réserve
+                    </span>
+                  )
                 ) : (
                   <button
                     className="small"
@@ -85,6 +117,11 @@ export function LiveLeft() {
               </li>
             ))}
           </ul>
+          {others.some((r) => r.available && !groundedBy(r.id).length) && (
+            <p className="hint">
+              Un couple en réserve est engagé par « Recalculer » quand il améliore la couverture.
+            </p>
+          )}
         </>
       )}
 
