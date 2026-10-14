@@ -80,28 +80,42 @@ export function needsSizing(mission: Pick<Mission, 'resources'>): boolean {
 const capabilityScore = (m: DroneModel) =>
   (m.thermal ? 4 : 0) + (m.night ? 2 : 0) + (m.rainOk ? 1 : 0) + m.zoomX / 1000;
 
+/** Le plus modeste d'abord ; à capacités égales, la plus grande autonomie. */
+const modest = (a: DroneModel, b: DroneModel) =>
+  capabilityScore(a) - capabilityScore(b) || b.enduranceMin - a.enduranceMin;
+
+const hasRequirement = (r: Requirement) => !!(r.thermal || r.night || r.minZoomX !== undefined);
+
 /**
- * Modèles de la flotte : un « généraliste » qui tient le plus d'exigences de zones, plus un
- * spécialiste par exigence qu'il ne tient pas (thermique, nuit, zoom).
+ * Modèles de la flotte : un « généraliste », le plus modeste de la bibliothèque (les cellules
+ * sans exigence n'ont besoin que d'un drone en l'air : la portée dépend du télépilote, pas du
+ * modèle), et des spécialistes pour les zones dont il ne tient pas l'exigence. Chaque
+ * spécialiste est le modèle le plus modeste qui la tient, autant que de drones voulus dans ces
+ * zones (redondance comprise), au maximum sur les phases.
+ *
+ * `needsByPhase` : pour chaque phase, l'exigence de chaque drone voulu dans les zones
+ * prioritaires actives (une entrée par drone).
  */
 export function chooseModels(
   models: DroneModel[],
-  requirements: Requirement[],
+  needsByPhase: Requirement[][],
 ): { generalist?: DroneModel; specialists: DroneModel[] } {
   if (!models.length) return { specialists: [] };
-  const held = (m: DroneModel) => requirements.filter((r) => meetsRequirement(m, r)).length;
-  const generalist = [...models].sort(
-    (a, b) => held(b) - held(a) || capabilityScore(b) - capabilityScore(a),
-  )[0];
-  const specialists: DroneModel[] = [];
-  for (const req of requirements) {
-    if (meetsRequirement(generalist, req) || specialists.some((s) => meetsRequirement(s, req)))
-      continue;
-    const best = models
-      .filter((m) => meetsRequirement(m, req))
-      .sort((a, b) => capabilityScore(b) - capabilityScore(a))[0];
-    if (best) specialists.push(best);
+  const byModesty = [...models].sort(modest);
+  const generalist = byModesty[0]!;
+  const needed = new Map<DroneModel, number>();
+  for (const needs of needsByPhase) {
+    const inPhase = new Map<DroneModel, number>();
+    for (const req of needs) {
+      if (meetsRequirement(generalist, req)) continue;
+      const m = byModesty.find((x) => meetsRequirement(x, req));
+      if (m) inPhase.set(m, (inPhase.get(m) ?? 0) + 1);
+    }
+    for (const [m, n] of inPhase) needed.set(m, Math.max(needed.get(m) ?? 0, n));
   }
+  const specialists = [...needed]
+    .sort(([a], [b]) => modest(b, a))
+    .flatMap(([m, n]) => Array<DroneModel>(n).fill(m));
   return { generalist, specialists };
 }
 
@@ -154,10 +168,13 @@ export function sizeFleet(input: SizingInput): SizingResult {
   if (!models.length)
     return empty('Dimensionnement impossible : aucun drone de la bibliothèque ne peut voler');
 
-  const requirements = mission.priorityZones
-    .map((z) => z.requires ?? {})
-    .filter((r) => r.thermal || r.night || r.minZoomX !== undefined);
-  const { generalist, specialists } = chooseModels(models, requirements);
+  const needsByPhase = grids.map((_, phase) =>
+    mission.priorityZones
+      .filter((z) => !z.phases?.length || z.phases.includes(phase))
+      .filter((z) => hasRequirement(z.requires ?? {}))
+      .flatMap((z) => Array<Requirement>(Math.max(1, z.redundancy ?? 1)).fill(z.requires)),
+  );
+  const { generalist, specialists } = chooseModels(models, needsByPhase);
   if (!generalist) return empty('Dimensionnement impossible : bibliothèque vide');
 
   const nMax = Math.min(mission.maxDrones, SIZING_MAX_DRONES);

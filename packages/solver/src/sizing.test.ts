@@ -43,17 +43,39 @@ describe('dimensionnement de la flotte', () => {
     expect(new Set(resources.map((r) => r.pilotId)).size).toBe(3);
   });
 
-  it('choisit un généraliste, et un spécialiste pour ce qu’il ne tient pas', () => {
+  it('choisit le plus modeste, et un spécialiste par drone voulu là où il ne suffit pas', () => {
     const mini = model('mini', { zoomX: 4 });
-    const thermique = model('thermique', { thermal: true });
+    const thermique = model('thermique', { thermal: true, night: true, zoomX: 112 });
     const nuit = model('nuit', { night: true });
+    // Phase 0 : deux zones thermiques ; phase 1 : une zone de nuit.
     const { generalist, specialists } = chooseModels(
-      [mini, thermique, nuit],
-      [{ thermal: true }, { night: true }],
+      [thermique, nuit, mini],
+      [[{ thermal: true }, { thermal: true }], [{ night: true }]],
     );
-    expect(generalist?.id).toBe('thermique');
-    expect(specialists.map((m) => m.id)).toEqual(['nuit']);
+    expect(generalist?.id).toBe('mini');
+    expect(specialists.map((m) => m.id)).toEqual(['thermique', 'thermique', 'nuit']);
   });
+
+  it('sans exigence, aucun spécialiste', () => {
+    const { generalist, specialists } = chooseModels(
+      [model('gros', { thermal: true }), model('petit')],
+      [[{}]],
+    );
+    expect(generalist?.id).toBe('petit');
+    expect(specialists).toEqual([]);
+  });
+
+  it('sur la démo : du thermique seulement pour la zone qui l’exige', () => {
+    const mission = planning({ maxDrones: 4, phaseCount: 1 });
+    const res = sizeFleet({ mission, catalog: drones, rules: pilotRules, grids: gridsOf(mission) });
+    const thermalZones = mission.priorityZones.filter((z) => z.requires?.thermal);
+    const thermal = res.resources.filter(
+      (r) => drones.find((d) => d.id === r.droneModelId)?.thermal,
+    );
+    expect(thermalZones.length).toBeGreaterThan(0);
+    expect(thermal.length).toBe(Math.min(thermalZones.length, res.recommended));
+    expect(new Set(res.resources.map((r) => r.droneModelId)).size).toBeGreaterThan(1);
+  }, 60_000);
 
   it('sur la démo : la plus petite flotte proche de la meilleure couverture permise', () => {
     const mission = planning({ maxDrones: 4, phaseCount: 1 });
