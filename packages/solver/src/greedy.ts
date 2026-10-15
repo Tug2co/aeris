@@ -16,7 +16,7 @@ import {
  * Nombre d'itérations du recuit (≈ 100 ms sur la mission de démo). Pas de chronomètre, ni ici
  * ni dans l'affinage : le résultat ne doit pas dépendre de la charge de la machine (CI, démo).
  */
-const ITERATIONS = 30_000;
+const ITERATIONS = 24_000;
 /** Température finale relative à la température initiale. */
 const FINAL_TEMPERATURE_RATIO = 1e-3;
 /** Affinage final : rayon de recherche autour de chaque drone, et nombre max de passes. */

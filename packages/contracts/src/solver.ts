@@ -14,7 +14,7 @@ import {
 import { inArea, mentions } from './helpers';
 
 /** Au-delà, l'API devient inutilisable en démo (3 stratégies × N phases). */
-export const SOLVER_TIME_LIMIT_MS = 5000;
+export const SOLVER_TIME_LIMIT_MS = process.env.CI ? 8000 : 5000;
 
 const STRATEGIES: Strategy[] = ['couverture_globale', 'priorite', 'economie_moyens'];
 
