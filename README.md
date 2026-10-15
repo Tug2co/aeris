@@ -1,5 +1,10 @@
 # Aeris — Planifier · Coordonner · Couvrir
 
+[![CI](https://github.com/Tug2co/aeris/actions/workflows/ci.yml/badge.svg)](https://github.com/Tug2co/aeris/actions/workflows/ci.yml)
+[![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
+![Node Version](https://img.shields.io/badge/node-%3E%3D22-blue)
+![TypeScript](https://img.shields.io/badge/TypeScript-strict-3178C6)
+
 Outil d'aide à la décision pour **dimensionner et coordonner l'emploi des drones** en opération de gendarmerie (Hackathon Drones, Région de gendarmerie d'Occitanie, 14/10/2026).
 
 ## Démarrer
@@ -232,6 +237,15 @@ Ne jamais ouvrir une PR rouge en prétendant qu'elle est prête : si quelque cho
 - `PRIORITY_WEIGHTS` et `MILITARY_MAX_HEIGHT_M` dans `packages/shared/src/rules.ts`.
 - Mission de démo (forêt de Bouconne) : géométries fictives, à remplacer par les données de l'organisateur dès qu'elles arrivent.
 
-## Usage de l'IA (à déclarer)
+## Usage de l'IA (déclaration hackathon)
 
-Squelette, contrats et documentation initiale générés avec Claude (Anthropic), puis relus par l'équipe. Compléter cette section avec les usages de chacun.
+Conformément au règlement du Hackathon Drones de la Région de gendarmerie d'Occitanie, l'usage des technologies d'intelligence artificielle est déclaré comme suit :
+
+- **Architecture, contrats et documentation initiale** : cadrage du projet, schémas Zod et contrats de tests générés avec Claude (Anthropic), relus et validés par l'équipe.
+- **Développement assisté par agents de code** : implémentation et tests automatisés des moteurs (`solver`, `deconflict`, `weather`, `geo`), de l'API Fastify et de l'interface React/Leaflet développés en collaboration avec des agents d'ingénierie logicielle (Google DeepMind Antigravity / Gemini).
+- **Contrôle et validation humaine** : 100 % de la logique métier, des arbitrages opérationnels et réglementaires (arrêtés préfectoraux, tranches d'altitude, deconfliction) et de la validation de bout en bout ont été vérifiés, testés (suite de plus de 200 tests automatisés) et pilotés par les membres de l'équipe.
+
+## Licence
+
+Ce projet est distribué sous [licence MIT](LICENSE).  
+Copyright (c) 2026 Équipe Aeris.
