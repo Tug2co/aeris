@@ -131,14 +131,14 @@ Nouvelle route ? P1 l'ajoute au client (`api/client.ts`), au mock et au script `
 
 Chaque personne **possède un dossier** : personne d'autre n'y écrit sans la prévenir (voir `.github/CODEOWNERS`).
 
-| #      | Rôle                          | Dossiers possédés                                                                          | Livrables clés                                                                                                                                                      |
-| ------ | ----------------------------- | ------------------------------------------------------------------------------------------ | ------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| **P1** | Lead archi / intégration      | `packages/shared`, `packages/contracts`, `apps/api`, racine                                | dépôt + CI, contrats, routes, pipeline, simulation « avec N TP1 / M TP2 », export du dispositif, merges, démo                                                       |
-| **P2** | Solveur                       | `packages/solver`                                                                          | ILP HiGHS (limite ~3 s, repli glouton), stratégies réellement différentes, **dimensionnement** (« quels moyens me faut-il pour X % ? »), statut infaisable expliqué |
-| **P3** | Moteur géo                    | `packages/geo`, `packages/data`                                                            | polygones de couverture / trous / chevauchements en GeoJSON pour la carte, communes concernées, métrique de **stabilité après changement**, performance             |
-| **P4** | Séparation & météo            | `packages/deconflict`, `packages/weather`                                                  | cascade complète (secteurs Voronoï, plafonds locaux urbain/militaire, créneaux, renoncement), météo par phase (prévision horaire)                                   |
-| **P5** | Front carte & configuration   | `apps/web/src/map`, `apps/web/src/features/config`                                         | dessin des zones (leaflet-geoman), formulaires couples/arrêté/phases, curseurs de simulation, couches couverture/trous                                              |
-| **P6** | Front propositions & conduite | `apps/web/src/features/scenarios`, `apps/web/src/features/live`, `apps/web/src/components` | comparaison des propositions, édition des positions, conduite temps réel, ajout de zone prioritaire en direct, panneau de démo                                      |
+| #      | Membre GitHub  | Rôle                          | Dossiers possédés                                                                          | Livrables clés                                                                                                                                                      |
+| ------ | -------------- | ----------------------------- | ------------------------------------------------------------------------------------------ | ------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| **P1** | `@A2Lec`       | Lead archi / intégration      | `packages/shared`, `packages/contracts`, `apps/api`, racine                                | dépôt + CI, contrats, routes, pipeline, simulation « avec N TP1 / M TP2 », export du dispositif, merges, démo                                                       |
+| **P2** | `@Verigyk`     | Solveur                       | `packages/solver`                                                                          | ILP HiGHS (limite ~3 s, repli glouton), stratégies réellement différentes, **dimensionnement** (« quels moyens me faut-il pour X % ? »), statut infaisable expliqué |
+| **P3** | `@antoinec2c`  | Moteur géo                    | `packages/geo`, `packages/data`                                                            | polygones de couverture / trous / chevauchements en GeoJSON pour la carte, communes concernées, métrique de **stabilité après changement**, performance             |
+| **P4** | `@Tug2co`      | Séparation & météo            | `packages/deconflict`, `packages/weather`                                                  | cascade complète (secteurs Voronoï, plafonds locaux urbain/militaire, créneaux, renoncement), météo par phase (prévision horaire)                                   |
+| **P5** | `@Gunmy0`      | Front carte & configuration   | `apps/web/src/map`, `apps/web/src/features/config`                                         | dessin des zones (leaflet-geoman), formulaires couples/arrêté/phases, curseurs de simulation, couches couverture/trous                                              |
+| **P6** | `@MaxenceBlzt` | Front propositions & conduite | `apps/web/src/features/scenarios`, `apps/web/src/features/live`, `apps/web/src/components` | comparaison des propositions, édition des positions, conduite temps réel, ajout de zone prioritaire en direct, panneau de démo                                      |
 
 Points de couplage à anticiper :
 
@@ -156,7 +156,7 @@ Points de couplage à anticiper :
 6. **Travailler contre des mocks** : la mission de démo (`packages/data/src/fixtures`) permet à chacun de tester seul.
 7. **CI** : typecheck + format + tests (contrats, intégration, mocks) sur chaque MR ; `main` doit toujours démarrer.
 8. **Protection de `main`** (P1, une fois, dans GitHub → Settings → Branches) : interdire le push direct, exiger la CI verte (`check`) et la revue du propriétaire (CODEOWNERS) avant merge. Sans ça, la CI informe mais ne bloque rien.
-9. **CODEOWNERS** : remplacer `@p1` … `@p6` par les identifiants GitHub réels.
+9. **CODEOWNERS** : configuré dans `.github/CODEOWNERS` avec les identifiants GitHub des 6 membres de l'équipe.
 
 ## Consignes pour les agents IA (Claude, Copilot, Cursor…)
 

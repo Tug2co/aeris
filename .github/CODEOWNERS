@@ -1,14 +1,29 @@
-*                               @Tug2co
-/packages/shared/               @p1
-/packages/contracts/            @p1
-/apps/api/                      @p1
-/packages/solver/               @p2
-/packages/geo/                  @p3
-/packages/data/                 @p3
-/packages/deconflict/           @p4
-/packages/weather/              @p4
-/apps/web/src/map/              @p5
-/apps/web/src/features/config/  @p5
-/apps/web/src/features/scenarios/ @p6
-/apps/web/src/features/live/    @p6
-/apps/web/src/components/       @p6
+# Équipe Aeris - Hackathon Drones Occitanie 2026
+# Rôles P1 à P6 définis dans README.md et docs/ROLES.md
+
+*                               @Tug2co @A2Lec @Verigyk @antoinec2c @Gunmy0 @MaxenceBlzt
+
+# P1 - Lead architecture & intégration
+/packages/shared/               @A2Lec @Tug2co
+/packages/contracts/            @A2Lec @Tug2co
+/apps/api/                      @A2Lec @Tug2co
+
+# P2 - Solveur MCLP & dimensionnement
+/packages/solver/               @Verigyk
+
+# P3 - Moteur géographique & données
+/packages/geo/                  @antoinec2c
+/packages/data/                 @antoinec2c
+
+# P4 - Séparation & météo
+/packages/deconflict/           @Tug2co @antoinec2c
+/packages/weather/              @Tug2co @antoinec2c
+
+# P5 - Front carte & configuration
+/apps/web/src/map/              @Gunmy0 @antoinec2c
+/apps/web/src/features/config/  @Gunmy0
+
+# P6 - Front propositions & conduite
+/apps/web/src/features/scenarios/ @MaxenceBlzt
+/apps/web/src/features/live/    @MaxenceBlzt
+/apps/web/src/components/       @MaxenceBlzt
