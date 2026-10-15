@@ -170,9 +170,6 @@ importers:
       '@turf/turf':
         specifier: ^7.4.0
         version: 7.4.0
-      highs:
-        specifier: ^1.15.3
-        version: 1.15.3
     devDependencies:
       '@aeris/contracts':
         specifier: workspace:*
@@ -1171,10 +1168,6 @@ packages:
 
   geojson-polygon-self-intersections@1.2.2:
     resolution: {integrity: sha512-6XRNF4CsRHYmR9z5YuIk5f/aOototnDf0dgMqYGcS7y1l57ttt6MAIAxl3rXyas6lq1HEbTuLMh4PgvO+OV42w==}
-
-  highs@1.15.3:
-    resolution: {integrity: sha512-5rzjBlAkqRxr7FOv+iZjxF8nNfKsEt8uOaP3S6gls6yRf4+Jv4BqBIE3iPFsgfOHutQBMNxRE9jWhxRAM7Oycw==}
-    engines: {node: '>=18'}
 
   inherits@2.0.4:
     resolution: {integrity: sha512-k/vGaX4/Yla3WzyMCvTQOXYeIHvqOKtnqBduzTHpzpQZzAskKMhZ2K+EnBiSM9zGSoIFeMpXKxa4dYeZIQqewQ==}
@@ -3229,8 +3222,6 @@ snapshots:
   geojson-polygon-self-intersections@1.2.2:
     dependencies:
       rbush: 2.0.2
-
-  highs@1.15.3: {}
 
   inherits@2.0.4: {}
 

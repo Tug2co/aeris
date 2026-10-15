@@ -7,6 +7,12 @@
 
 Outil d'aide à la décision pour **dimensionner et coordonner l'emploi des drones** en opération de gendarmerie (Hackathon Drones, Région de gendarmerie d'Occitanie, 14/10/2026).
 
+## Statut
+
+Prototype réalisé en une journée (Hackathon Drones, Région de gendarmerie d'Occitanie, 14/10/2026). **Non homologué, ne pas utiliser en opération réelle.**
+
+Limites connues : pas d'authentification ; données en mémoire (perdues au redémarrage) ; services externes (Open-Meteo, tuiles OSM et IGN, Google Fonts) ; valeurs réglementaires issues du mémo « scénarios drone » de l'organisateur ; scénario TP1 en vue (1.1) non modélisé.
+
 ## Démarrer
 
 Prérequis : Node 22. `pnpm` est fourni par Corepack (inclus dans Node) :
@@ -61,8 +67,8 @@ Cycle de vie d'une mission (machine à états côté API) :
 ### Le modèle de calcul
 
 1. **Grille** (`geo/buildGrid`) : la zone de travail est découpée en cellules de 100 m, une grille par phase. Chaque cellule porte sa priorité (zones actives dans la phase), ses capacités requises (zoom, thermique, nuit), et ses contraintes (interdite, plafond, urbain).
-2. **Placement** (`solver`) : couverture maximale pondérée (MCLP). v0 = glouton ; v1 = programme linéaire en nombres entiers avec HiGHS (`ilp.ts`, modèle décrit en commentaire). Contraintes : disponibilité, météo, arrêté (`maxDrones`), zone limite, position imposée, capacités. Une pénalité de déplacement par rapport à la solution précédente assure la **stabilité** entre phases et lors des recalculs.
-3. **Séparation** (`deconflict`) : cascade du brief horizontal → vertical → temporel → renoncement. v0 = tranches d'altitude de 20 m.
+2. **Placement** (`solver`) : couverture maximale pondérée (MCLP). Résolu par un glouton, puis un recuit simulé, puis un affinage au pas de la grille (`greedy.ts`). Heuristique déterministe (graine tirée du contenu de la mission), pas un optimum garanti. Un modèle ILP HiGHS a été prototypé (commit `5c474d9`) puis abandonné au profit du recuit (`4889e4e`) : sur le budget de 2,5 s, le modèle agrégé (blocs de 600 m) ne faisait pas mieux que le recuit et consommait le temps de calcul. Contraintes : disponibilité, météo, arrêté (`maxDrones`), zone limite, position imposée, capacités. Une pénalité de déplacement par rapport à la solution précédente assure la **stabilité** entre phases et lors des recalculs.
+3. **Séparation** (`deconflict`) : cascade du brief horizontal → vertical → temporel → renoncement. Tranches d'altitude : 20 m minimum, 30 m nominal, bornes arrondies à 5 m.
 4. **Mesure** (`geo/computeMetrics`) : couverture totale, prioritaire (par un drone capable), pondérée, chevauchement, surfaces.
 5. **Plusieurs propositions** : une par stratégie (`couverture_globale`, `priorite`, `economie_moyens`), calculées en parallèle.
 
@@ -80,7 +86,7 @@ Chaque moteur implémente un type déclaré dans `shared`, et le déclare explic
 | `MetricsEngine`           | `computeMetrics` (`packages/geo`)              | P3           |
 | `CoverageGeometryBuilder` | `coverageGeometry` (`packages/geo`) → carte    | P3 → P5      |
 | `StabilityEngine`         | `mesurerStabilite` (`packages/geo`) → recalcul | P3 → P6      |
-| `Solver`                  | `greedySolve`, `ilpSolve` (`packages/solver`)  | P2           |
+| `Solver`                  | `greedySolve` (`packages/solver`)              | P2           |
 | `Deconflicter`            | `deconflict` (`packages/deconflict`)           | P4           |
 | `WeatherProvider`         | `fetchWeather` (`packages/weather`)            | P4           |
 | `WeatherFilter`           | `excludedByWeather` (`packages/weather`)       | P4           |
@@ -93,14 +99,14 @@ Les données échangées avec le front (mission, propositions, événements, `Co
 
 Des tests écrits une fois, que **chaque implémentation** exécute dans son package (`src/contract.test.ts`). Ils tournent sur toutes les missions de test de `packages/data/src/fixtures/index.ts` (démo, aucun moyen, arrêté à 0, position imposée, nuit sans thermique, plafond militaire, urbain, 3 phases, zone minuscule, grande zone interdite).
 
-| Suite                   | Ce qui est garanti                                                                                                                                                                                                                 |
-| ----------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `solverContract`        | < 5 s ; arrêté respecté ; seulement des couples disponibles et non exclus (et chaque exclusion expliquée) ; position imposée, zone limite, zone de travail, zones interdites ; portée et plafond du niveau ; `infaisable` expliqué |
-| `deconflictContract`    | aucun couple perdu sans le dire ; sous le plafond du solveur et les plafonds locaux ; position imposée intacte ; tout conflit résiduel déclaré                                                                                     |
-| `gridContract`          | cellules dans la zone ; priorité, capacités, interdit, urbain et plafonds conformes à la config de la phase                                                                                                                        |
-| `metricsContract`       | ratios dans [0, 1], surfaces cohérentes, cas « rien / tout / double », monotonie                                                                                                                                                   |
-| `coverageContract`      | ce que la carte affiche (couvert, trous, chevauchement) = ce que les métriques mesurent                                                                                                                                            |
-| `weatherFilterContract` | exclusions exactes (vent, pluie, nuit, froid), toujours justifiées                                                                                                                                                                 |
+| Suite                   | Ce qui est garanti                                                                                                                                                                                                                                                                                                                                                |
+| ----------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `solverContract`        | < 6 s (5 s jusqu'à la PR #36, relevé pour absorber la variance des machines de CI ; itérations du recuit passées de 30 000 à 24 000) ; arrêté respecté ; seulement des couples disponibles et non exclus (et chaque exclusion expliquée) ; position imposée, zone limite, zone de travail, zones interdites ; portée et plafond du niveau ; `infaisable` expliqué |
+| `deconflictContract`    | aucun couple perdu sans le dire ; sous le plafond du solveur et les plafonds locaux ; position imposée intacte ; tout conflit résiduel déclaré                                                                                                                                                                                                                    |
+| `gridContract`          | cellules dans la zone ; priorité, capacités, interdit, urbain et plafonds conformes à la config de la phase                                                                                                                                                                                                                                                       |
+| `metricsContract`       | ratios dans [0, 1], surfaces cohérentes, cas « rien / tout / double », monotonie                                                                                                                                                                                                                                                                                  |
+| `coverageContract`      | ce que la carte affiche (couvert, trous, chevauchement) = ce que les métriques mesurent                                                                                                                                                                                                                                                                           |
+| `weatherFilterContract` | exclusions exactes (vent, pluie, nuit, froid), toujours justifiées                                                                                                                                                                                                                                                                                                |
 
 Les vérifications utilisent leurs propres calculs géométriques (pas `@aeris/geo`), pour qu'un bug ne se valide pas lui-même. Une règle du contrat te bloque à tort ? Parles-en à P1, on la corrige ensemble ; ne la contourne pas dans ton code.
 
@@ -131,14 +137,14 @@ Nouvelle route ? P1 l'ajoute au client (`api/client.ts`), au mock et au script `
 
 Chaque personne **possède un dossier** : personne d'autre n'y écrit sans la prévenir (voir `.github/CODEOWNERS`).
 
-| #      | Membre GitHub  | Rôle                          | Dossiers possédés                                                                          | Livrables clés                                                                                                                                                      |
-| ------ | -------------- | ----------------------------- | ------------------------------------------------------------------------------------------ | ------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| **P1** | `@A2Lec`       | Lead archi / intégration      | `packages/shared`, `packages/contracts`, `apps/api`, racine                                | dépôt + CI, contrats, routes, pipeline, simulation « avec N TP1 / M TP2 », export du dispositif, merges, démo                                                       |
-| **P2** | `@Verigyk`     | Solveur                       | `packages/solver`                                                                          | ILP HiGHS (limite ~3 s, repli glouton), stratégies réellement différentes, **dimensionnement** (« quels moyens me faut-il pour X % ? »), statut infaisable expliqué |
-| **P3** | `@antoinec2c`  | Moteur géo                    | `packages/geo`, `packages/data`                                                            | polygones de couverture / trous / chevauchements en GeoJSON pour la carte, communes concernées, métrique de **stabilité après changement**, performance             |
-| **P4** | `@Tug2co`      | Séparation & météo            | `packages/deconflict`, `packages/weather`                                                  | cascade complète (secteurs Voronoï, plafonds locaux urbain/militaire, créneaux, renoncement), météo par phase (prévision horaire)                                   |
-| **P5** | `@Gunmy0`      | Front carte & configuration   | `apps/web/src/map`, `apps/web/src/features/config`                                         | dessin des zones (leaflet-geoman), formulaires couples/arrêté/phases, curseurs de simulation, couches couverture/trous                                              |
-| **P6** | `@MaxenceBlzt` | Front propositions & conduite | `apps/web/src/features/scenarios`, `apps/web/src/features/live`, `apps/web/src/components` | comparaison des propositions, édition des positions, conduite temps réel, ajout de zone prioritaire en direct, panneau de démo                                      |
+| #      | Membre GitHub  | Rôle                          | Dossiers possédés                                                                          | Livrables clés                                                                                                                                          |
+| ------ | -------------- | ----------------------------- | ------------------------------------------------------------------------------------------ | ------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| **P1** | `@A2Lec`       | Lead archi / intégration      | `packages/shared`, `packages/contracts`, `apps/api`, racine                                | dépôt + CI, contrats, routes, pipeline, simulation « avec N TP1 / M TP2 », export du dispositif, merges, démo                                           |
+| **P2** | `@Verigyk`     | Solveur                       | `packages/solver`                                                                          | Recuit simulé déterministe, stratégies distinctes, **dimensionnement** (« quels moyens me faut-il pour X % ? »), statut infaisable expliqué             |
+| **P3** | `@antoinec2c`  | Moteur géo                    | `packages/geo`, `packages/data`                                                            | polygones de couverture / trous / chevauchements en GeoJSON pour la carte, communes concernées, métrique de **stabilité après changement**, performance |
+| **P4** | `@Tug2co`      | Séparation & météo            | `packages/deconflict`, `packages/weather`                                                  | cascade complète (secteurs Voronoï, plafonds locaux urbain/militaire, créneaux, renoncement), météo par phase (prévision horaire)                       |
+| **P5** | `@Gunmy0`      | Front carte & configuration   | `apps/web/src/map`, `apps/web/src/features/config`                                         | dessin des zones (leaflet-geoman), formulaires couples/arrêté/phases, curseurs de simulation, couches couverture/trous                                  |
+| **P6** | `@MaxenceBlzt` | Front propositions & conduite | `apps/web/src/features/scenarios`, `apps/web/src/features/live`, `apps/web/src/components` | comparaison des propositions, édition des positions, conduite temps réel, ajout de zone prioritaire en direct, panneau de démo                          |
 
 Points de couplage à anticiper :
 
@@ -239,11 +245,14 @@ Ne jamais ouvrir une PR rouge en prétendant qu'elle est prête : si quelque cho
 
 ## Usage de l'IA (déclaration hackathon)
 
-Conformément au règlement du Hackathon Drones de la Région de gendarmerie d'Occitanie, l'usage des technologies d'intelligence artificielle est déclaré comme suit :
+Conformément au règlement du Hackathon Drones de la Région de gendarmerie d'Occitanie, l'usage de l'IA est déclaré comme suit :
 
-- **Architecture, contrats et documentation initiale** : cadrage du projet, schémas Zod et contrats de tests générés avec Claude (Anthropic), relus et validés par l'équipe.
-- **Développement assisté par agents de code** : implémentation et tests automatisés des moteurs (`solver`, `deconflict`, `weather`, `geo`), de l'API Fastify et de l'interface React/Leaflet développés en collaboration avec des agents d'ingénierie logicielle (Google DeepMind Antigravity / Gemini).
-- **Contrôle et validation humaine** : 100 % de la logique métier, des arbitrages opérationnels et réglementaires (arrêtés préfectoraux, tranches d'altitude, deconfliction) et de la validation de bout en bout ont été vérifiés, testés (suite de plus de 200 tests automatisés) et pilotés par les membres de l'équipe.
+| Sujet                         | Détail                                                                                                                                                              |
+| ----------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Outils                        | Claude (Anthropic), GitHub Copilot, Antigravity / Gemini (Google DeepMind)                                                                                          |
+| Généré avec l'IA              | Cadrage, schémas zod, suites de contrat, implémentation et tests des moteurs (`solver`, `deconflict`, `weather`, `geo`), API Fastify, interface React/Leaflet       |
+| Relu et décidé par l'équipe   | Architecture, logique métier, arbitrages opérationnels et réglementaires (arrêtés, tranches d'altitude, séparation), validation de bout en bout (plus de 200 tests) |
+| Proposition refusée (exemple) | Garder l'ILP HiGHS comme solveur principal : l'équipe a retenu le recuit seul, aussi bon dans le temps imparti et plus simple (voir « Le modèle de calcul »)        |
 
 ## Licence
 

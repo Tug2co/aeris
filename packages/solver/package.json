@@ -14,8 +14,7 @@
   "dependencies": {
     "@aeris/geo": "workspace:*",
     "@aeris/shared": "workspace:*",
-    "@turf/turf": "^7.4.0",
-    "highs": "^1.15.3"
+    "@turf/turf": "^7.4.0"
   },
   "devDependencies": {
     "@aeris/contracts": "workspace:*",
